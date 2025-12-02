@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Getter
@@ -63,5 +64,14 @@ public class UserDetails {
 
     @Column(name = "role")
     private String role;
+
+    @Column(name = "otp_token")
+    private String otpToken;
+
+    @Column(name = "otp_expire_at")
+    private LocalDateTime otpExpiryDateTime;
+
+    @Column(name = "is_otp_used")
+    private Boolean isOtpUsed;
 }
 

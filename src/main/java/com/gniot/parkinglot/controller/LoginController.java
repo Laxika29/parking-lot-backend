@@ -1,6 +1,8 @@
 package com.gniot.parkinglot.controller;
 
+import com.gniot.parkinglot.dto.request.AuthRequest;
 import com.gniot.parkinglot.dto.request.RegistrationRequest;
+import com.gniot.parkinglot.dto.response.LoginResponse;
 import com.gniot.parkinglot.service.LoginService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -12,34 +14,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1")
 @CrossOrigin(origins = "*")
 public class LoginController {
-    // login API- > /login
-    /**
-     * Request Body :
-     *  1. emailID/ EmployeeId
-     *  2. password
-     *
-     *  Response Body :
-     *  1. emailID
-     *  2. employeeId
-     *  3. token -> code likenge
-     *  4. userType
-     *  5. fullName
-     */
-
-
-    // registration API
-    /**
-     * Request Body :
-     * 1. fullName
-     * 1. emailId
-     * 3. parkingLot ID
-     * 4. password
-     * <p>
-     * Response Body :
-     * Message: Registration Successful
-     * <p>
-     * Basic validation :
-     */
 
     @Autowired
     private LoginService loginService;
@@ -61,5 +35,11 @@ public class LoginController {
 
         loginService.registerUser(registrationRequest);
         return ResponseEntity.ok("Registration Successful");
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> authenticateAndGetToken(@RequestBody AuthRequest authRequest) {
+        LoginResponse response = loginService.login(authRequest);
+        return ResponseEntity.ok(response);
     }
 }

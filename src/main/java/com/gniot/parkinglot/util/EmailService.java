@@ -28,7 +28,7 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    public void sendHtmlEmail(String to, String subject, String htmlBody) throws MessagingException {
+    public void sendHtmlEmail(String to, String subject, String htmlBody) {
         try {
             log.info("Sending HTML email to: {}", to);
             MimeMessage message = mailSender.createMimeMessage();
@@ -41,7 +41,6 @@ public class EmailService {
             log.info("HTML email sent successfully to: {}", to);
         } catch (Exception ex) {
             log.error("Failed to send HTML email to: {}", to, ex);
-            throw ex;
         }
     }
 }

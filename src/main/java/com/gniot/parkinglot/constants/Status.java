@@ -3,6 +3,7 @@ package com.gniot.parkinglot.constants;
 public enum Status {
     ACTIVE("ACTIVE", 0),
     INACTIVE("INACTIVE", 1),
+    REJECTED("REJECTED", 4),
     PENDING_FOR_APPROVAL("PENDING_FOR_APPROVAL", 3);
 
     private final String status;
