@@ -71,6 +71,10 @@ public class JwtService {
         Claims claims = extractAllClaims(token);
         return claims.get("role", String.class);
     }
+    public Long extractParkingLotId(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("parkingLotId", Long.class);
+    }
 
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);

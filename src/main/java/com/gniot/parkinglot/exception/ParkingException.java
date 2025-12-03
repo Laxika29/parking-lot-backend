@@ -23,4 +23,11 @@ public class ParkingException extends RuntimeException {
         this.code = code;
         this.status = "FAILED";
     }
+
+    public ParkingException(String message) {
+        super(message);
+        this.message = message;
+        this.code = "1";
+        this.status = "FAILED";
+    }
 }

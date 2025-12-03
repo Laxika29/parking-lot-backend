@@ -1,9 +1,11 @@
 package com.gniot.parkinglot.configuration;
 
+import com.gniot.parkinglot.constants.AppConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -38,11 +40,13 @@ public class JwtAuthenticator extends OncePerRequestFilter {
         }
 
         String username = jwtService.extractUsername(jwt);
+        MDC.put(AppConstants.USERNAME, username);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
             if (!jwtService.isTokenExpired(jwt)) {
-
+                Long parkingLotId = jwtService.extractParkingLotId(jwt);
+                MDC.put(AppConstants.PARKING_LOT_ID, String.valueOf(parkingLotId));
                 String role = jwtService.extractRole(jwt);
 
                 var authorities = List.of(
