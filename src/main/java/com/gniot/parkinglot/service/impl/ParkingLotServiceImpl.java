@@ -1,6 +1,7 @@
 package com.gniot.parkinglot.service.impl;
 
 import com.gniot.parkinglot.constants.AppConstants;
+import com.gniot.parkinglot.constants.ParkingLotMasterCache;
 import com.gniot.parkinglot.constants.ParkingType;
 import com.gniot.parkinglot.constants.VehicleType;
 import com.gniot.parkinglot.dao.ParkedVehicleDetailsRepo;
@@ -9,16 +10,15 @@ import com.gniot.parkinglot.dao.ParkingLotSummaryRepo;
 import com.gniot.parkinglot.dao.ParkingRateMasterRepo;
 import com.gniot.parkinglot.dto.CalculateChargeDto;
 import com.gniot.parkinglot.dto.request.CheckinParkingLotReq;
+import com.gniot.parkinglot.dto.request.LockVehicleRequest;
 import com.gniot.parkinglot.dto.request.ParkingLotPaymentReq;
-import com.gniot.parkinglot.dto.response.CheckoutVehicleResponse;
-import com.gniot.parkinglot.dto.response.CommonResponse;
-import com.gniot.parkinglot.dto.response.FetchParkingLotResponse;
-import com.gniot.parkinglot.dto.response.ParkingLotData;
+import com.gniot.parkinglot.dto.response.*;
 import com.gniot.parkinglot.entity.ParkedVehicleDetails;
-import com.gniot.parkinglot.entity.ParkingLotSummary;
+import com.gniot.parkinglot.entity.ParkingLotMaster;
 import com.gniot.parkinglot.entity.ParkingRateMaster;
 import com.gniot.parkinglot.exception.ParkingException;
 import com.gniot.parkinglot.service.ParkingLotService;
+import com.gniot.parkinglot.util.CommonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,16 +70,29 @@ public class ParkingLotServiceImpl implements ParkingLotService {
         validateRequestForCheckIn(request);
         VehicleType vehicleType = VehicleType.getVehicleType(request.getVehicleType().toUpperCase());
         ParkingType parkingType = ParkingType.getParkingType(request.getParkingType().toUpperCase());
-        updateParkingLotSummary(vehicleType, 1);
-        ParkedVehicleDetails parkedVehicleDetails = new ParkedVehicleDetails();
-        parkedVehicleDetails.setAllotedBy(MDC.get("username"));
-        parkedVehicleDetails.setParkingLotId(Long.valueOf(MDC.get("parkingLotId")));
-        parkedVehicleDetails.setVehicleNumber(request.getVehicleNumber());
-        parkedVehicleDetails.setParkingType(parkingType);
-        parkedVehicleDetails.setVehicleType(vehicleType);
-        parkedVehicleDetails.setParkingStatus("PARKED");
-        parkedVehicleDetailsRepo.save(parkedVehicleDetails);
-        return CommonResponse.builder().message("Vehicle checkin has been done").build();
+        boolean isParked = parkedVehicleDetailsRepo.checkForVehicle(request.getVehicleNumber());
+        if (isParked)
+            throw new ParkingException("Vehicle is already parked");
+        ParkingLotMaster parkingLotMaster = ParkingLotMasterCache.parkingLotMasterMap.get(Long.valueOf(MDC.get(AppConstants.PARKING_LOT_ID)));
+        if (parkingLotMaster == null || !(Objects.equals(parkingLotMaster.getStatus(), "ACTIVE"))) {
+            throw new ParkingException("Parking lot is not active");
+        }
+        long rowAffected = updateParkingLotSummary(vehicleType, 1);
+        if (rowAffected > 0) {
+            ParkedVehicleDetails parkedVehicleDetails = new ParkedVehicleDetails();
+            parkedVehicleDetails.setAllotedBy(MDC.get(AppConstants.USERNAME));
+            parkedVehicleDetails.setParkingLotId(Long.valueOf(MDC.get(AppConstants.PARKING_LOT_ID)));
+            parkedVehicleDetails.setVehicleNumber(request.getVehicleNumber());
+            parkedVehicleDetails.setParkingType(parkingType);
+            parkedVehicleDetails.setVehicleType(vehicleType);
+            parkedVehicleDetails.setEntryDateTime(LocalDateTime.now());
+            parkedVehicleDetails.setParkingStatus("PARKED");
+            parkedVehicleDetails.setIsLocked(Boolean.FALSE);
+            parkedVehicleDetailsRepo.save(parkedVehicleDetails);
+            return CommonResponse.builder().message("Vehicle checkin has been done").build();
+        } else {
+            throw new ParkingException("No space available for parking");
+        }
     }
 
 
@@ -90,12 +103,20 @@ public class ParkingLotServiceImpl implements ParkingLotService {
             Optional<ParkedVehicleDetails> parkedVehicleDetailsOptional = parkedVehicleDetailsRepo.findById(request.getParkingId());
             if (parkedVehicleDetailsOptional.isPresent()) {
                 ParkedVehicleDetails parkedVehicleDetails = parkedVehicleDetailsOptional.get();
+                if (Boolean.TRUE.equals(parkedVehicleDetails.getIsLocked())) {
+                    throw new ParkingException("Vehicle is locked for payment. Please complete the payment first.");
+                }
+                if (!Objects.equals(parkedVehicleDetails.getParkingStatus(), "PARKED")) {
+                    throw new ParkingException("Vehicle is not parked currently.");
+                }
                 updateParkingLotSummary(parkedVehicleDetails.getVehicleType(), -1);
                 calculateRate(parkedVehicleDetails);
                 parkedVehicleDetails.setParkingStatus("NOT PARKED");
+                parkedVehicleDetails.setCheckoutBy(MDC.get(AppConstants.USERNAME));
                 parkedVehicleDetailsRepo.save(parkedVehicleDetails);
                 return CheckoutVehicleResponse.builder()
                         .parkingId(request.getParkingId())
+                        .vehicleNumber(parkedVehicleDetails.getVehicleNumber())
                         .parkingCharge(parkedVehicleDetails.getParkingCharge())
                         .entryTime(parkedVehicleDetails.getEntryDateTime())
                         .exitTime(parkedVehicleDetails.getExitDateTime()).build();
@@ -108,7 +129,7 @@ public class ParkingLotServiceImpl implements ParkingLotService {
     @Override
     public CommonResponse confirmPayment(ParkingLotPaymentReq request) {
         log.info("Confirm payment request");
-        Optional<ParkedVehicleDetails> parkedVehicleDetailsOptional = parkedVehicleDetailsRepo.findById(Long.valueOf(MDC.get(AppConstants.PARKING_LOT_ID)));
+        Optional<ParkedVehicleDetails> parkedVehicleDetailsOptional = parkedVehicleDetailsRepo.findById(request.getId());
         if (Objects.equals(request.getPaymentFor(), "PENALTY")) {
             if (parkedVehicleDetailsOptional.isPresent()) {
                 ParkedVehicleDetails parkedVehicleDetails = parkedVehicleDetailsOptional.get();
@@ -130,9 +151,81 @@ public class ParkingLotServiceImpl implements ParkingLotService {
         return CommonResponse.builder().message("Payment confirmed!!").build();
     }
 
+    @Override
+    public DashboardParkedVehicleResponse fetchDashboardVehicles() {
+        log.info("Fetching dashboard vehicles");
+        Long parkingLotId = Long.valueOf(MDC.get(AppConstants.PARKING_LOT_ID));
+        List<ParkedVehicleDetails> parkedVehicleDetails = parkedVehicleDetailsRepo.fetchAllParkedVehicles(parkingLotId);
+        return buildDashboardResponse(parkedVehicleDetails);
+    }
+
+    @Override
+    public CommonResponse unLockVehicle(LockVehicleRequest request) {
+        log.info("Unlocking vehicle for parking id: {}", request.getParkingId());
+        Optional<ParkedVehicleDetails> parkedVehicleDetailsOptional = parkedVehicleDetailsRepo.findById(request.getParkingId());
+        if (parkedVehicleDetailsOptional.isPresent()) {
+            ParkedVehicleDetails parkedVehicleDetails = parkedVehicleDetailsOptional.get();
+            if (Boolean.FALSE.equals(parkedVehicleDetails.getIsLocked())) {
+                throw new ParkingException("Vehicle is not locked");
+            }
+            if (!Objects.equals(parkedVehicleDetails.getParkingStatus(), "PARKED")) {
+                throw new ParkingException("Vehicle is not parked currently.");
+            }
+            parkedVehicleDetails.setIsLocked(Boolean.FALSE);
+            parkedVehicleDetails.setPenaltyPaymentType(request.getPaymentMode());
+            parkedVehicleDetails.setLockPenaltyCharge(AppConstants.PENALTY_CHARGE);
+            parkedVehicleDetailsRepo.save(parkedVehicleDetails);
+            return CommonResponse.builder().message("Vehicle unlocked successfully").build();
+        }
+        throw new ParkingException("Invalid parking id");
+    }
+
+    @Override
+    public CommonResponse lockVehicle(LockVehicleRequest request) {
+        log.info("Locking vehicle for parking id: {}", request.getParkingId());
+        Optional<ParkedVehicleDetails> parkedVehicleDetailsOptional = parkedVehicleDetailsRepo.findById(request.getParkingId());
+        if (parkedVehicleDetailsOptional.isPresent()) {
+            ParkedVehicleDetails parkedVehicleDetails = parkedVehicleDetailsOptional.get();
+            if (Boolean.TRUE.equals(parkedVehicleDetails.getIsLocked())) {
+                throw new ParkingException("Vehicle is already locked");
+            }
+            if (!Objects.equals(parkedVehicleDetails.getParkingStatus(), "PARKED")) {
+                throw new ParkingException("Vehicle is not parked currently.");
+            }
+            parkedVehicleDetails.setIsLocked(Boolean.TRUE);
+            parkedVehicleDetails.setLockReason(request.getLockReason());
+            parkedVehicleDetails.setLockedBy(MDC.get(AppConstants.USERNAME));
+            parkedVehicleDetails.setLockedOn(LocalDateTime.now());
+            parkedVehicleDetailsRepo.save(parkedVehicleDetails);
+            return CommonResponse.builder().message("Vehicle locked successfully").build();
+        }
+        throw new ParkingException("Invalid parking id");
+    }
+
+    private DashboardParkedVehicleResponse buildDashboardResponse(List<ParkedVehicleDetails> parkedVehicleDetailsList) {
+        DashboardParkedVehicleResponse response = new DashboardParkedVehicleResponse();
+        List<DashboardParkedVehicleResponse.ParkedVehicleInfo> parkedVehicleInfoList = new ArrayList<>();
+        for (ParkedVehicleDetails pd : parkedVehicleDetailsList) {
+            parkedVehicleInfoList.add(
+                    DashboardParkedVehicleResponse.ParkedVehicleInfo.builder()
+                            .vehicleNumber(pd.getVehicleNumber())
+                            .vehicleType(pd.getVehicleType().getType())
+                            .entryTime(CommonUtil.convertDisplayTime(pd.getEntryDateTime()))
+                            .exitTime(CommonUtil.convertDisplayTime(pd.getExitDateTime()))
+                            .allocatedBy(pd.getAllotedBy())
+                            .exitBy(pd.getCheckoutBy())
+                            .parkingId(pd.getId())
+                            .vehicleLocked(pd.getIsLocked())
+                            .build()
+            );
+        }
+        response.setParkedVehicleInfoList(parkedVehicleInfoList);
+        return response;
+    }
+
     private void calculateRate(ParkedVehicleDetails parkedVehicleDetails) {
         LocalDateTime now = LocalDateTime.now();
-        parkedVehicleDetails.setEntryDateTime(now);
+        parkedVehicleDetails.setExitDateTime(now);
         long hours = Duration.between(parkedVehicleDetails.getEntryDateTime(), now).toHours();
         List<ParkingRateMaster> parkingLotId = parkingRateMasterRepo.findAllById(MDC.get("parkingLotId"));
         Map<ParkingType, ParkingRateMaster> rateChargeMap =
@@ -201,19 +294,16 @@ public class ParkingLotServiceImpl implements ParkingLotService {
         }
     }
 
-    private void updateParkingLotSummary(VehicleType vehicleType, int value) {
+    private long updateParkingLotSummary(VehicleType vehicleType, int value) {
         switch (vehicleType) {
             case CAR:
-                parkingLotSummaryRepo.updateCarCount(Long.valueOf(MDC.get("parkingLotId")), value);
-                return;
+                return parkingLotSummaryRepo.updateCarCount(Long.valueOf(MDC.get("parkingLotId")), value);
             case BIKE:
-                parkingLotSummaryRepo.updateBikeCount(Long.valueOf(MDC.get("parkingLotId")), value);
-                return;
+                return parkingLotSummaryRepo.updateBikeCount(Long.valueOf(MDC.get("parkingLotId")), value);
             case HEAVY_VEHICLE:
-                parkingLotSummaryRepo.updateHeavyVehicleCount(Long.valueOf(MDC.get("parkingLotId")), value);
-                return;
+                return parkingLotSummaryRepo.updateHeavyVehicleCount(Long.valueOf(MDC.get("parkingLotId")), value);
             default:
-                break;
+                throw new ParkingException("Invalid vehicle type");
         }
     }
 

@@ -4,6 +4,8 @@ import org.springframework.stereotype.Component;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Random;
 
@@ -29,5 +31,11 @@ public class CommonUtil {
         Random rand = new Random();
         // Generates a number between 10000 and 99999 (inclusive)
         return rand.nextInt(90000) + 10000;
+    }
+
+    public static String convertDisplayTime(LocalDateTime datetime){
+        if (datetime == null) return "";
+        DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+        return datetime.format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm"));
     }
 }

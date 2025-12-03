@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class ParkedVehicleDetails {
     @Id
     @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE
+    @GeneratedValue(strategy = GenerationType.AUTO
     )
     private Long id;
 

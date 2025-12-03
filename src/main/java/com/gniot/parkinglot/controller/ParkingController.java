@@ -1,11 +1,9 @@
 package com.gniot.parkinglot.controller;
 
 import com.gniot.parkinglot.dto.request.CheckinParkingLotReq;
+import com.gniot.parkinglot.dto.request.LockVehicleRequest;
 import com.gniot.parkinglot.dto.request.ParkingLotPaymentReq;
-import com.gniot.parkinglot.dto.response.CheckoutVehicleResponse;
-import com.gniot.parkinglot.dto.response.CommonResponse;
-import com.gniot.parkinglot.dto.response.FetchParkingLotResponse;
-import com.gniot.parkinglot.dto.response.FetchPendingUserApprovalResponse;
+import com.gniot.parkinglot.dto.response.*;
 import com.gniot.parkinglot.service.ParkingLotService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -36,7 +34,7 @@ public class ParkingController {
     @PostMapping("/check-in")
     public ResponseEntity<CommonResponse> checkinVehicle(@RequestBody CheckinParkingLotReq request) {
         CommonResponse commonResponse = parkingLotService.checkInVehicle(request);
-        return null;
+        return ResponseEntity.ok(commonResponse);
     }
 
     @PostMapping("/check-out")
@@ -50,4 +48,24 @@ public class ParkingController {
         CommonResponse response = parkingLotService.confirmPayment(request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/fetch/dashboard/vehicles")
+    public ResponseEntity<DashboardParkedVehicleResponse> fetchDashboardVehicles() {
+        DashboardParkedVehicleResponse response = parkingLotService.fetchDashboardVehicles();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/lock/vehicle")
+    public ResponseEntity<CommonResponse> lockVehicle(@RequestBody LockVehicleRequest request) {
+        CommonResponse response = parkingLotService.lockVehicle(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/unlock/vehicle")
+    public ResponseEntity<CommonResponse> unLockVehicle(@RequestBody LockVehicleRequest request) {
+        CommonResponse response = parkingLotService.unLockVehicle(request);
+        return ResponseEntity.ok(response);
+    }
+
+
 }

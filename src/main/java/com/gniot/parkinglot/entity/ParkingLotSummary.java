@@ -11,7 +11,7 @@ import lombok.Setter;
 public class ParkingLotSummary {
     @Id
     @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE
+    @GeneratedValue(strategy = GenerationType.AUTO
     )
     private Long id;
 
