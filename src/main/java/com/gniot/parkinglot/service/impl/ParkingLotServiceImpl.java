@@ -401,8 +401,11 @@ public class ParkingLotServiceImpl implements ParkingLotService {
             case "MONTHLY":
                 subscriptionUserMaster.setValidTill(LocalDateTime.now().plusMonths(1));
                 break;
-            case "WEEKLY":
-                subscriptionUserMaster.setValidTill(LocalDateTime.now().plusWeeks(1));
+            case "HALF-YEARLY":
+                subscriptionUserMaster.setValidTill(LocalDateTime.now().plusMonths(6));
+                break;
+            case "YEARLY":
+                subscriptionUserMaster.setValidTill(LocalDateTime.now().plusYears(1));
                 break;
             case "DAILY":
                 subscriptionUserMaster.setValidTill(LocalDateTime.now().plusDays(1));
