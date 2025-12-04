@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface ParkingLotSummaryRepo extends JpaRepository<ParkingLotSummary, Long> {
     @Modifying
@@ -26,4 +28,7 @@ public interface ParkingLotSummaryRepo extends JpaRepository<ParkingLotSummary, 
 
     @Query("select case when count(p) > 0 then true else false end from ParkingLotSummary p where p.parkingLotId = :parkingLotId")
     boolean existsByParkingLotId(Long parkingLotId);
+
+    @Query("select p from ParkingLotSummary p where p.parkingLotId = :parkingLotId")
+    Optional<ParkingLotSummary> findByParkingLotId(Long parkingLotId);
 }

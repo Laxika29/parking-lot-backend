@@ -11,4 +11,7 @@ import java.util.List;
 public interface ParkingRateMasterRepo extends JpaRepository<ParkingRateMaster, Long> {
     @Query("select rm from ParkingRateMaster rm where rm.parkingLotId=:parkingLotId")
     List<ParkingRateMaster> findAllById(String parkingLotId);
+
+    @Query("select rm from ParkingRateMaster rm where rm.parkingLotId=:parkingLotId")
+    List<ParkingRateMaster> findAllByParkingLotId(Long parkingLotId);
 }

@@ -45,5 +45,10 @@ public class ParkingLotMaster {
     @Column(name = "updated_at")
     private Date updatedAt;
 
+    @Column(name="longitude")
+    private Double longitude;
+
+    @Column(name="latitude")
+    private Double latitude;
 
 }

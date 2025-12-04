@@ -11,7 +11,7 @@ public class CheckoutVehicleResponse {
     private Long parkingId;
     private String vehicleNumber;
     private Double parkingCharge;
-    private LocalDateTime entryTime;
-    private LocalDateTime exitTime;
+    private String entryTime;
+    private String exitTime;
 
 }

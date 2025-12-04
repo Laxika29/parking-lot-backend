@@ -2,6 +2,7 @@ package com.gniot.parkinglot.dao;
 
 import com.gniot.parkinglot.dto.response.ParkingLotData;
 import com.gniot.parkinglot.entity.ParkingLotMaster;
+import com.gniot.parkinglot.entity.ParkingRateMaster;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -22,4 +23,7 @@ public interface ParkingLotMasterRepository extends JpaRepository<ParkingLotMast
 
     @Query("select new com.gniot.parkinglot.dto.response.ParkingLotData(plm.id, plm.parkingLotName, plm.address, plm.bikeCapacity, plm.carCapacity, plm.heavyVehicleCapacity, plm.status) from ParkingLotMaster plm where plm.status ='ACTIVE'")
     List<ParkingLotData> findAllActiveParkingLot();
+
+    @Query("select rm from ParkingLotMaster rm where rm.id <> :parkingLotId and rm.status ='ACTIVE'")
+    List<ParkingLotMaster> findAllByExcludingParkingId(Long parkingLotId);
 }

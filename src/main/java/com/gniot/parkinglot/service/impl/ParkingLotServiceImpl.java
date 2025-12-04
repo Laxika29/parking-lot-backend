@@ -11,20 +11,24 @@ import com.gniot.parkinglot.dao.ParkingRateMasterRepo;
 import com.gniot.parkinglot.dto.CalculateChargeDto;
 import com.gniot.parkinglot.dto.request.CheckinParkingLotReq;
 import com.gniot.parkinglot.dto.request.LockVehicleRequest;
+import com.gniot.parkinglot.dto.request.ParkingFareDetails;
 import com.gniot.parkinglot.dto.request.ParkingLotPaymentReq;
 import com.gniot.parkinglot.dto.response.*;
 import com.gniot.parkinglot.entity.ParkedVehicleDetails;
 import com.gniot.parkinglot.entity.ParkingLotMaster;
+import com.gniot.parkinglot.entity.ParkingLotSummary;
 import com.gniot.parkinglot.entity.ParkingRateMaster;
 import com.gniot.parkinglot.exception.ParkingException;
 import com.gniot.parkinglot.service.ParkingLotService;
 import com.gniot.parkinglot.util.CommonUtil;
+import com.gniot.parkinglot.util.DistanceCalculator;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -111,15 +115,14 @@ public class ParkingLotServiceImpl implements ParkingLotService {
                 }
                 updateParkingLotSummary(parkedVehicleDetails.getVehicleType(), -1);
                 calculateRate(parkedVehicleDetails);
-                parkedVehicleDetails.setParkingStatus("NOT PARKED");
                 parkedVehicleDetails.setCheckoutBy(MDC.get(AppConstants.USERNAME));
                 parkedVehicleDetailsRepo.save(parkedVehicleDetails);
                 return CheckoutVehicleResponse.builder()
                         .parkingId(request.getParkingId())
                         .vehicleNumber(parkedVehicleDetails.getVehicleNumber())
                         .parkingCharge(parkedVehicleDetails.getParkingCharge())
-                        .entryTime(parkedVehicleDetails.getEntryDateTime())
-                        .exitTime(parkedVehicleDetails.getExitDateTime()).build();
+                        .entryTime(CommonUtil.convertDisplayTime(parkedVehicleDetails.getEntryDateTime()))
+                        .exitTime(CommonUtil.convertDisplayTime(parkedVehicleDetails.getExitDateTime())).build();
             }
 
         }
@@ -160,6 +163,52 @@ public class ParkingLotServiceImpl implements ParkingLotService {
     }
 
     @Override
+    public AvailableParkingLotResponse fetchAvailableParkingLot() {
+        log.info("Fetching available parking lot");
+        ParkingLotMaster parkingLotMaster = ParkingLotMasterCache.parkingLotMasterMap.get(Long.valueOf(MDC.get(AppConstants.PARKING_LOT_ID)));
+        if (parkingLotMaster == null) {
+            throw new ParkingException("Invalid parking lot");
+        }
+        Optional<ParkingLotSummary> parkingLotSummaryOptional = parkingLotSummaryRepo.findByParkingLotId(parkingLotMaster.getId());
+        if (parkingLotSummaryOptional.isPresent()) {
+            ParkingLotSummary parkingLotSummary = parkingLotSummaryOptional.get();
+            return AvailableParkingLotResponse.builder()
+                    .bikeAvailableSlots(parkingLotMaster.getBikeCapacity() - parkingLotSummary.getBikeParkedCount())
+                    .carAvailableSlots(parkingLotMaster.getCarCapacity() - parkingLotSummary.getCarParkedCount())
+                    .heavyVehicleAvailableSlots(parkingLotMaster.getHeavyVehicleCapacity() - parkingLotSummary.getHeavyVehicleParkedCount())
+                    .build();
+        }
+        throw new ParkingException("Parking lot summary not found");
+    }
+
+    @Override
+    public ParkingLotHistoryResponse fetchParkingLotHistory() {
+        List<ParkedVehicleDetails> parkedVehicleDetails = parkedVehicleDetailsRepo.fetchAllParkingLotHistory(Long.valueOf(MDC.get(AppConstants.PARKING_LOT_ID)));
+        List<ParkingLotHistoryResponse.ParkingLotHistory> parkingLotHistories = new ArrayList<>();
+        for (ParkedVehicleDetails pd : parkedVehicleDetails) {
+            if (pd.getLockPenaltyCharge() != null && pd.getLockPenaltyCharge() > 0) {
+                parkingLotHistories.add(buildParkingHistory(pd, "PENALTY", pd.getLockPenaltyCharge()));
+            }
+            parkingLotHistories.add(buildParkingHistory(pd, "PARKING", pd.getParkingCharge()));
+        }
+        return ParkingLotHistoryResponse.builder()
+                .parkingLotHistories(parkingLotHistories)
+                .build();
+    }
+
+    private static ParkingLotHistoryResponse.ParkingLotHistory buildParkingHistory(ParkedVehicleDetails pd, String paymentType, Double paymentCharge) {
+        return ParkingLotHistoryResponse.ParkingLotHistory.builder()
+                .vehicleNo(pd.getVehicleNumber())
+                .type(pd.getVehicleType().getType())
+                .entryTime(CommonUtil.convertDisplayTime(pd.getEntryDateTime()))
+                .exitTime(CommonUtil.convertDisplayTime(pd.getExitDateTime()))
+                .paymentMode(pd.getPaymentType())
+                .paymentType(paymentType)
+                .charge(paymentCharge)
+                .build();
+    }
+
+    @Override
     public CommonResponse unLockVehicle(LockVehicleRequest request) {
         log.info("Unlocking vehicle for parking id: {}", request.getParkingId());
         Optional<ParkedVehicleDetails> parkedVehicleDetailsOptional = parkedVehicleDetailsRepo.findById(request.getParkingId());
@@ -178,6 +227,94 @@ public class ParkingLotServiceImpl implements ParkingLotService {
             return CommonResponse.builder().message("Vehicle unlocked successfully").build();
         }
         throw new ParkingException("Invalid parking id");
+    }
+
+    @Override
+    public AvailableParkingResponse fetchAvailableParkingStatus() {
+        log.info("Fetching available parking status");
+        ParkingLotMaster parkingLotMaster = ParkingLotMasterCache.parkingLotMasterMap.get(Long.valueOf(MDC.get(AppConstants.PARKING_LOT_ID)));
+        List<ParkingLotMaster> parkingRateMasters = parkingLotMasterRepository.findAllByExcludingParkingId(Long.valueOf(MDC.get(AppConstants.PARKING_LOT_ID)));
+        PriorityQueue<AvailableParkingInfo> availableParkingInfoList = new PriorityQueue<>(Comparator.comparing(AvailableParkingInfo::getDistanceInKm).thenComparing(AvailableParkingInfo::getParkingLotName));
+        for (ParkingLotMaster plm : parkingRateMasters) {
+            Optional<ParkingLotSummary> parkingLotSummaryOptional = parkingLotSummaryRepo.findByParkingLotId(plm.getId());
+            if (parkingLotSummaryOptional.isPresent()) {
+                ParkingLotSummary parkingLotSummary = parkingLotSummaryOptional.get();
+                Long bikeAvailableSlots = plm.getBikeCapacity() - parkingLotSummary.getBikeParkedCount();
+                Long carAvailableSlots = plm.getCarCapacity() - parkingLotSummary.getCarParkedCount();
+                Long heavyVehicleAvailableSlots = plm.getHeavyVehicleCapacity() - parkingLotSummary.getHeavyVehicleParkedCount();
+                DecimalFormat df = new DecimalFormat("#.00");
+                double distance = DistanceCalculator.calculateDistance(
+                        parkingLotMaster.getLatitude(), parkingLotMaster.getLongitude(),
+                        plm.getLatitude(), plm.getLongitude());
+                availableParkingInfoList.add(AvailableParkingInfo.builder()
+                        .vehicleType("Bike")
+                        .parkingLotName(plm.getParkingLotName())
+                        .address(plm.getAddress())
+                        .totalSpace(plm.getBikeCapacity())
+                        .availableSpace(bikeAvailableSlots)
+                        .occupiedSpace(parkingLotSummary.getBikeParkedCount())
+                        .distanceInKm(Double.valueOf(df.format(distance)))
+                        .build());
+
+                availableParkingInfoList.add(AvailableParkingInfo.builder()
+                        .vehicleType("Car")
+                        .parkingLotName(plm.getParkingLotName())
+                        .address(plm.getAddress())
+                        .totalSpace(plm.getCarCapacity())
+                        .availableSpace(carAvailableSlots)
+                        .occupiedSpace(parkingLotSummary.getCarParkedCount())
+                        .distanceInKm(Double.valueOf(df.format(distance)))
+                        .build());
+
+                availableParkingInfoList.add(AvailableParkingInfo.builder()
+                        .vehicleType("Heavy Vehicle")
+                        .parkingLotName(plm.getParkingLotName())
+                        .address(plm.getAddress())
+                        .totalSpace(plm.getHeavyVehicleCapacity())
+                        .availableSpace(heavyVehicleAvailableSlots)
+                        .occupiedSpace(parkingLotSummary.getHeavyVehicleParkedCount())
+                        .distanceInKm(Double.valueOf(df.format(distance)))
+                        .build());
+            }
+        }
+        return AvailableParkingResponse.builder()
+                .availableParkingInfoList(new ArrayList<>(availableParkingInfoList))
+                .build();
+    }
+
+    @Override
+    public ParkingLotFareDetailsResponse fetchFareDetails() {
+        log.info("Fetching fare details");
+        List<ParkingRateMaster> parkingRateMasters = parkingRateMasterRepo.findAllById(MDC.get(AppConstants.PARKING_LOT_ID));
+        ParkingFareDetails bike = new ParkingFareDetails("Bike");
+        ParkingFareDetails car = new ParkingFareDetails("Car");
+        ParkingFareDetails heavyVehicle = new ParkingFareDetails("Heavy Vehicle");
+        for (ParkingRateMaster parkingRateMaster : parkingRateMasters) {
+            log.info("Rate master details: {}", parkingRateMaster);
+            switch (parkingRateMaster.getParkingType()) {
+                case HOURLY:
+                    bike.setHourlyRate(String.valueOf(parkingRateMaster.getBikeParkingCharge()));
+                    car.setHourlyRate(String.valueOf(parkingRateMaster.getCarParkingCharge()));
+                    heavyVehicle.setHourlyRate(String.valueOf(parkingRateMaster.getHeavyVehicleParkingCharge()));
+                    break;
+                case DAILY:
+                    bike.setDailyRate(String.valueOf(parkingRateMaster.getBikeParkingCharge()));
+                    car.setDailyRate(String.valueOf(parkingRateMaster.getCarParkingCharge()));
+                    heavyVehicle.setDailyRate(String.valueOf(parkingRateMaster.getHeavyVehicleParkingCharge()));
+                    break;
+                case WEEKLY:
+                    bike.setWeeklyRate(String.valueOf(parkingRateMaster.getBikeParkingCharge()));
+                    car.setWeeklyRate(String.valueOf(parkingRateMaster.getCarParkingCharge()));
+                    heavyVehicle.setWeeklyRate(String.valueOf(parkingRateMaster.getHeavyVehicleParkingCharge()));
+                    break;
+                case MONTHLY:
+                    bike.setMonthlyRate(String.valueOf(parkingRateMaster.getBikeParkingCharge()));
+                    car.setMonthlyRate(String.valueOf(parkingRateMaster.getCarParkingCharge()));
+                    heavyVehicle.setMonthlyRate(String.valueOf(parkingRateMaster.getHeavyVehicleParkingCharge()));
+                    break;
+            }
+        }
+        return ParkingLotFareDetailsResponse.builder().parkingFareDetailsList(List.of(bike, car, heavyVehicle)).build();
     }
 
     @Override
@@ -216,6 +353,9 @@ public class ParkingLotServiceImpl implements ParkingLotService {
                             .exitBy(pd.getCheckoutBy())
                             .parkingId(pd.getId())
                             .vehicleLocked(pd.getIsLocked())
+                            .lockedBy(pd.getLockedBy())
+                            .lockReason(pd.getLockReason())
+                            .lockedTime(CommonUtil.convertDisplayTime(pd.getLockedOn()))
                             .build()
             );
         }

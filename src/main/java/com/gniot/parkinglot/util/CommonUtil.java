@@ -7,6 +7,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.Locale;
 import java.util.Random;
 
 @Component
@@ -33,9 +34,10 @@ public class CommonUtil {
         return rand.nextInt(90000) + 10000;
     }
 
-    public static String convertDisplayTime(LocalDateTime datetime){
+    public static String convertDisplayTime(LocalDateTime datetime) {
         if (datetime == null) return "";
-        DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
-        return datetime.format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm"));
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a", Locale.US);
+        return datetime.format(formatter);
     }
 }

@@ -3,10 +3,7 @@ package com.gniot.parkinglot.service;
 import com.gniot.parkinglot.dto.request.CheckinParkingLotReq;
 import com.gniot.parkinglot.dto.request.LockVehicleRequest;
 import com.gniot.parkinglot.dto.request.ParkingLotPaymentReq;
-import com.gniot.parkinglot.dto.response.CheckoutVehicleResponse;
-import com.gniot.parkinglot.dto.response.CommonResponse;
-import com.gniot.parkinglot.dto.response.DashboardParkedVehicleResponse;
-import com.gniot.parkinglot.dto.response.FetchParkingLotResponse;
+import com.gniot.parkinglot.dto.response.*;
 
 public interface ParkingLotService {
     FetchParkingLotResponse fetchAllParkingLot();
@@ -24,4 +21,12 @@ public interface ParkingLotService {
     CommonResponse lockVehicle(LockVehicleRequest request);
 
     CommonResponse unLockVehicle(LockVehicleRequest request);
+
+    AvailableParkingLotResponse fetchAvailableParkingLot();
+
+    ParkingLotHistoryResponse fetchParkingLotHistory();
+
+    ParkingLotFareDetailsResponse fetchFareDetails();
+
+    AvailableParkingResponse fetchAvailableParkingStatus();
 }

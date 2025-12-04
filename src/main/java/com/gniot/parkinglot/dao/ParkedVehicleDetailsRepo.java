@@ -12,6 +12,10 @@ public interface ParkedVehicleDetailsRepo extends JpaRepository<ParkedVehicleDet
     @Query("select case when count(p) > 0 then true else false end from ParkedVehicleDetails p where p.vehicleNumber = :vehicleNumber and p.parkingStatus = 'PARKED'")
     boolean checkForVehicle(String vehicleNumber);
 
-    @Query("select p from ParkedVehicleDetails p where p.parkingLotId = :parkingLotId and p.parkingStatus = 'PARKED'")
+    @Query("select p from ParkedVehicleDetails p where p.parkingLotId = :parkingLotId and p.parkingStatus = 'PARKED' order by p.entryDateTime desc")
     List<ParkedVehicleDetails> fetchAllParkedVehicles(Long parkingLotId);
+
+    @Query("select p from ParkedVehicleDetails p where p.parkingLotId =:parkingLotId and p.parkingStatus = 'NOT PARKED' order by p.entryDateTime desc")
+    List<ParkedVehicleDetails> fetchAllParkingLotHistory(Long parkingLotId);
+
 }

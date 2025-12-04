@@ -148,6 +148,7 @@ public class LoginServiceImpl implements LoginService {
                 .parkingLotId(user.getParkingLotId())
                 .tokenType("Bearer")
                 .employeeId(user.getEmployeeId())
+                .parkingLotName(parkingLotMaster.getParkingLotName())
                 .build();
     }
 

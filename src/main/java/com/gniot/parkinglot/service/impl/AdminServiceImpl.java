@@ -1,15 +1,19 @@
 package com.gniot.parkinglot.service.impl;
 
 import com.gniot.parkinglot.constants.EmailHtmlConstants;
+import com.gniot.parkinglot.constants.ParkingType;
 import com.gniot.parkinglot.constants.Status;
 import com.gniot.parkinglot.dao.ParkingLotMasterRepository;
+import com.gniot.parkinglot.dao.ParkingRateMasterRepo;
 import com.gniot.parkinglot.dao.UserDetailsRepository;
 import com.gniot.parkinglot.dto.request.CreateParkingLotRequest;
 import com.gniot.parkinglot.dto.request.UpdateParkingLotRequest;
+import com.gniot.parkinglot.dto.request.UpdateParkingRateRequest;
 import com.gniot.parkinglot.dto.response.CommonResponse;
 import com.gniot.parkinglot.dto.response.FetchPendingUserApprovalResponse;
 import com.gniot.parkinglot.dto.response.PendingUserDetails;
 import com.gniot.parkinglot.entity.ParkingLotMaster;
+import com.gniot.parkinglot.entity.ParkingRateMaster;
 import com.gniot.parkinglot.entity.UserDetails;
 import com.gniot.parkinglot.exception.ParkingException;
 import com.gniot.parkinglot.service.AdminService;
@@ -17,6 +21,7 @@ import com.gniot.parkinglot.util.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.text.DateFormat;
 import java.util.*;
@@ -34,6 +39,9 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private ParkingLotMasterRepository parkingLotMasterRepository;
 
+    @Autowired
+    private ParkingRateMasterRepo parkingRateMasterRepo;
+
     @Override
     public String createParkingLot(CreateParkingLotRequest parkingLotRequest) {
         log.info("Creating parking lot for request : {}", parkingLotRequest);
@@ -46,6 +54,8 @@ public class AdminServiceImpl implements AdminService {
             parkingLotMaster.setBikeCapacity(parkingLotRequest.getBikeCapacity());
             parkingLotMaster.setCarCapacity(parkingLotRequest.getCarCapacity());
             parkingLotMaster.setHeavyVehicleCapacity(parkingLotRequest.getHeavyVehicleCapacity());
+            parkingLotMaster.setLatitude(parkingLotRequest.getLatitude());
+            parkingLotMaster.setLongitude(parkingLotRequest.getLongitude());
             parkingLotMasterRepository.save(parkingLotMaster);
             return "Parking lot created successfully";
         } else {
@@ -147,6 +157,44 @@ public class AdminServiceImpl implements AdminService {
         parkingLotMaster.setHeavyVehicleCapacity(updateParkingLotRequest.getHeavyVehicleCapacity());
         parkingLotMasterRepository.save(parkingLotMaster);
         return CommonResponse.builder().message("Parking Lot capacity update successfully").build();
+    }
+
+    @Override
+    public CommonResponse configureParkingRate(UpdateParkingRateRequest request) {
+        log.info("Configuring parking rate");
+        ParkingLotMaster parkingLotMaster = parkingLotMasterRepository.fetchParkingLotMasterById(request.getParkingLotId());
+        if (parkingLotMaster == null) {
+            throw new ParkingException("LX12006", "Parking lot not found");
+        }
+
+        List<ParkingRateMaster> parkingRateMasters = parkingRateMasterRepo.findAllByParkingLotId(request.getParkingLotId());
+        List<ParkingType> configuredTypes = new ArrayList<>();
+        if (!CollectionUtils.isEmpty(parkingRateMasters)) {
+            for (ParkingRateMaster parkingRateMaster : parkingRateMasters) {
+                UpdateParkingRateRequest.PriceRate priceRate = request.getPriceRateMap().get(parkingRateMaster.getParkingType());
+                if (priceRate != null) {
+                    parkingRateMaster.setBikeParkingCharge(priceRate.getBikeRate());
+                    parkingRateMaster.setCarParkingCharge(priceRate.getCarRate());
+                    parkingRateMaster.setHeavyVehicleParkingCharge(priceRate.getHeavyVehicleRate());
+                    configuredTypes.add(parkingRateMaster.getParkingType());
+                    parkingRateMasterRepo.save(parkingRateMaster);
+                }
+            }
+        }
+        for (Map.Entry<ParkingType, UpdateParkingRateRequest.PriceRate> map : request.getPriceRateMap().entrySet()) {
+            if (configuredTypes.contains(map.getKey())) {
+                continue;
+            }
+            ParkingRateMaster parkingRateMaster = new ParkingRateMaster();
+            parkingRateMaster.setUserType("NORMAL");
+            parkingRateMaster.setParkingLotId(request.getParkingLotId());
+            parkingRateMaster.setParkingType(map.getKey());
+            parkingRateMaster.setBikeParkingCharge(map.getValue().getBikeRate());
+            parkingRateMaster.setCarParkingCharge(map.getValue().getCarRate());
+            parkingRateMaster.setHeavyVehicleParkingCharge(map.getValue().getHeavyVehicleRate());
+            parkingRateMasterRepo.save(parkingRateMaster);
+        }
+        return CommonResponse.builder().message("Parking rate configured successfully").build();
     }
 
     private FetchPendingUserApprovalResponse mapToFetchPendingUserApprovalResponse(List<UserDetails> userDetails) {

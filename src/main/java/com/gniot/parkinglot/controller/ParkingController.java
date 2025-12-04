@@ -67,5 +67,29 @@ public class ParkingController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/fetch/available/parking/lot")
+    public ResponseEntity<AvailableParkingLotResponse> fetchAvailableParkingLot() {
+        AvailableParkingLotResponse response = parkingLotService.fetchAvailableParkingLot();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/fetch/parking/history")
+    public ResponseEntity<ParkingLotHistoryResponse> fetchParkingLotHistory() {
+        ParkingLotHistoryResponse response = parkingLotService.fetchParkingLotHistory();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/fetch/fare/Details")
+    public ResponseEntity<ParkingLotFareDetailsResponse> fetchFareDetails() {
+        ParkingLotFareDetailsResponse response = parkingLotService.fetchFareDetails();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/fetch/parking/availability")
+    public ResponseEntity<AvailableParkingResponse> fetchAvailableParkingStatus() {
+        AvailableParkingResponse response = parkingLotService.fetchAvailableParkingStatus();
+        return ResponseEntity.ok(response);
+    }
+
 
 }

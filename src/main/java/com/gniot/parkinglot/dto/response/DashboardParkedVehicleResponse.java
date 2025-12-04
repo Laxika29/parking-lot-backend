@@ -3,8 +3,6 @@ package com.gniot.parkinglot.dto.response;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -22,5 +20,8 @@ public class DashboardParkedVehicleResponse {
         private String entryTime;
         private String exitTime;
         private boolean vehicleLocked;
+        private String lockedBy;
+        private String lockedTime;
+        private String lockReason;
     }
 }

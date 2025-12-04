@@ -13,4 +13,5 @@ public class LoginResponse {
     private Long parkingLotId;
     private String tokenType;
     private String employeeId;
+    private String parkingLotName;
 }

@@ -13,4 +13,6 @@ public class CreateParkingLotRequest {
     private Long bikeCapacity;
     private Long carCapacity;
     private Long heavyVehicleCapacity;
+    private Double longitude;
+    private Double latitude;
 }

@@ -2,6 +2,7 @@ package com.gniot.parkinglot.controller;
 
 import com.gniot.parkinglot.dto.request.CreateParkingLotRequest;
 import com.gniot.parkinglot.dto.request.UpdateParkingLotRequest;
+import com.gniot.parkinglot.dto.request.UpdateParkingRateRequest;
 import com.gniot.parkinglot.dto.response.CommonResponse;
 import com.gniot.parkinglot.dto.response.FetchPendingUserApprovalResponse;
 import com.gniot.parkinglot.service.AdminService;
@@ -57,6 +58,12 @@ public class AdminController {
     @PostMapping("/update/parking")
     public ResponseEntity<CommonResponse> updateParkingLot(@RequestBody UpdateParkingLotRequest updateParkingLotRequest) {
         CommonResponse response = adminService.updateParkingLot(updateParkingLotRequest);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/rate/config")
+    public ResponseEntity<CommonResponse> configureRate(@RequestBody UpdateParkingRateRequest request) {
+        CommonResponse response = adminService.configureParkingRate(request);
         return ResponseEntity.ok(response);
     }
 }
