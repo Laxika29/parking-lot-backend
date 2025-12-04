@@ -147,7 +147,7 @@ public class ParkingLotServiceImpl implements ParkingLotService {
         } else if (Objects.equals(request.getPaymentFor(), "PARKING")) {
             if (parkedVehicleDetailsOptional.isPresent()) {
                 ParkedVehicleDetails parkedVehicleDetails = parkedVehicleDetailsOptional.get();
-                if (parkedVehicleDetails.getPaymentType() != null && parkedVehicleDetails.getPaymentType().equals("SUBSCRIPTION")) {
+                if (parkedVehicleDetails.getPaymentType() == null || !parkedVehicleDetails.getPaymentType().equals("SUBSCRIPTION")) {
                     parkedVehicleDetails.setPaymentType(request.getPaymentMode());
                 }
                 parkedVehicleDetails.setIsLocked(false);
@@ -194,6 +194,9 @@ public class ParkingLotServiceImpl implements ParkingLotService {
         for (ParkedVehicleDetails pd : parkedVehicleDetails) {
             if (pd.getLockPenaltyCharge() != null && pd.getLockPenaltyCharge() > 0) {
                 parkingLotHistories.add(buildParkingHistory(pd, "PENALTY", pd.getLockPenaltyCharge()));
+            }
+            if (pd.getSubscriptionId() != null && pd.getSubscriptionId() > 0) {
+                parkingLotHistories.add(buildParkingHistory(pd, "SUBSCRIPTION", pd.getLockPenaltyCharge()));
             }
             parkingLotHistories.add(buildParkingHistory(pd, "PARKING", pd.getParkingCharge()));
         }
