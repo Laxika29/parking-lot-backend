@@ -147,7 +147,9 @@ public class ParkingLotServiceImpl implements ParkingLotService {
         } else if (Objects.equals(request.getPaymentFor(), "PARKING")) {
             if (parkedVehicleDetailsOptional.isPresent()) {
                 ParkedVehicleDetails parkedVehicleDetails = parkedVehicleDetailsOptional.get();
-                parkedVehicleDetails.setPaymentType(request.getPaymentMode());
+                if (parkedVehicleDetails.getPaymentType() != null && parkedVehicleDetails.getPaymentType().equals("SUBSCRIPTION")) {
+                    parkedVehicleDetails.setPaymentType(request.getPaymentMode());
+                }
                 parkedVehicleDetails.setIsLocked(false);
                 parkedVehicleDetails.setParkingStatus("NOT PARKED");
                 parkedVehicleDetailsRepo.save(parkedVehicleDetails);
