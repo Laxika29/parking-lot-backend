@@ -1,5 +1,6 @@
 package com.gniot.parkinglot.controller;
 
+import com.gniot.parkinglot.dto.request.ActivateSubscriptionRequest;
 import com.gniot.parkinglot.dto.request.CheckinParkingLotReq;
 import com.gniot.parkinglot.dto.request.LockVehicleRequest;
 import com.gniot.parkinglot.dto.request.ParkingLotPaymentReq;
@@ -91,5 +92,15 @@ public class ParkingController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/activate/subscription")
+    public ResponseEntity<CommonResponse> activateSubscription(@RequestBody ActivateSubscriptionRequest request) {
+        CommonResponse response = parkingLotService.activateSubscription(request);
+        return ResponseEntity.ok(response);
+    }
 
+    @PostMapping("/fetch/subscription")
+    public ResponseEntity<SubscriptionUserResponse> fetchSubscriptionUserDetails() {
+        SubscriptionUserResponse response = parkingLotService.fetchSubscriptionUserDetails();
+        return ResponseEntity.ok(response);
+    }
 }

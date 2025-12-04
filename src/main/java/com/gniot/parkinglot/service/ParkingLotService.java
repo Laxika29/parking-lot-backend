@@ -1,5 +1,6 @@
 package com.gniot.parkinglot.service;
 
+import com.gniot.parkinglot.dto.request.ActivateSubscriptionRequest;
 import com.gniot.parkinglot.dto.request.CheckinParkingLotReq;
 import com.gniot.parkinglot.dto.request.LockVehicleRequest;
 import com.gniot.parkinglot.dto.request.ParkingLotPaymentReq;
@@ -29,4 +30,8 @@ public interface ParkingLotService {
     ParkingLotFareDetailsResponse fetchFareDetails();
 
     AvailableParkingResponse fetchAvailableParkingStatus();
+
+    CommonResponse activateSubscription(ActivateSubscriptionRequest request);
+
+    SubscriptionUserResponse fetchSubscriptionUserDetails();
 }
